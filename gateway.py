@@ -7,6 +7,7 @@ Kelompok: Omar, Rosy, Rozan
 import asyncio
 import logging
 import uuid
+import json
 from typing import AsyncGenerator
 
 import grpc
@@ -157,7 +158,7 @@ async def stream_kursi():
                         "waktu": event.waktu,
                         "versi": event.versi,
                     }
-                    yield f"data: {data}\n\n"
+                    yield f"data: {json.dumps(data)}\n\n"
                 except StopIteration:
                     break
                 except Exception as e:
