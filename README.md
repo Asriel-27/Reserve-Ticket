@@ -11,7 +11,9 @@ Mata kuliah Komputasi Paralel dan Terdistribusi - Kelompok: **Omar, Rosy, Rozan*
 | `client_bioskop.py` | Client CLI: lihat, pesan, batal, pantau (timeout + retry exponential backoff + UUID) |
 | `bioskop_pb2.py`, `bioskop_pb2_grpc.py` | Stub Python yang digenerate dari `bioskop.proto` |
 | `test_beban.py` | Uji race condition dan uji kinerja 1 / 5 / 20 client (menghasilkan tabel laporan) |
-| `requirements.txt` | Dependensi |
+| `gateway.py` | **Gateway HTTP/REST untuk frontend web (FastAPI + SSE untuk streaming)** |
+| `frontend/` | **Frontend web (HTML/CSS/JS) - aplikasi reservasi tiket berbasis browser** |
+| `requirements.txt` | Dependensi (termasuk fastapi dan uvicorn untuk gateway) |
 
 ## 1. Instalasi
 
@@ -22,8 +24,15 @@ python3 -m venv venv
 # Windows Command Prompt: venv\Scripts\activate.bat
 # macOS/Linux:
 source venv/bin/activate
+
 pip install -r requirements.txt
 ```
+
+Dependensi yang dibutuhkan:
+- `grpcio` dan `grpcio-tools` - gRPC core
+- `protobuf` - serialisasi protocol buffers
+- `fastapi` - gateway HTTP untuk frontend web
+- `uvicorn` - ASGI server untuk menjalankan FastAPI
 
 ## 2. Generate stub
 
@@ -36,10 +45,12 @@ Menghasilkan `bioskop_pb2.py` (kelas message) dan `bioskop_pb2_grpc.py`
 Ulangi perintah ini setiap kali `bioskop.proto` diubah.
 Stub yang dihasilkan ikut disertakan agar proyek dapat langsung dijalankan; generate ulang jika kontrak berubah.
 
-## 3. Menjalankan (terminal terpisah)
+## 3. Menjalankan
+
+### A. Menggunakan Client CLI (terminal terpisah)
 
 ```bash
-# Terminal 1 - server
+# Terminal 1 - server gRPC
 python server_bioskop.py                  # opsi: --port 50051 --workers 30 --lambat
 
 # Terminal 2 - pemantau real-time
@@ -56,6 +67,46 @@ python client_bioskop.py pesan Z9 --nama Omar     # ditolak: NOT_FOUND
 
 Dua komputer: jalankan server di komputer A, lalu di komputer B pakai
 `python client_bioskop.py --alamat <IP_A>:50051 lihat` (buka port 50051 di firewall).
+
+### B. Menggunakan Frontend Web (untuk presentasi)
+
+**Jalankan 2 terminal:**
+
+```bash
+# Terminal 1 - server gRPC
+python server_bioskop.py
+
+# Terminal 2 - gateway HTTP (untuk frontend)
+python gateway.py
+```
+
+**Buka browser dan akses:**
+```
+http://localhost:8000
+```
+
+**Cara demonstrasi:**
+1. Buka aplikasi web di browser
+2. Tampilan menunjukkan denah kursi bioskop 5 baris × 8 kolom
+3. Klik kursi yang tersedia (hijau) untuk memilih
+4. Masukkan nama pemesan di form sebelah kanan
+5. Klik "Pesan Sekarang"
+6. Status kursi berubah menjadi merah (terpesan) secara real-time
+7. Untuk membatalkan: masukkan nomor kursi dan nama pemesan asli, lalu klik "Batalkan Pesanan"
+8. Kursi kembali tersedia (hijau)
+
+**Fitur real-time streaming:**
+- Buka aplikasi di 2 tab browser berbeda
+- Pesan kursi di tab pertama
+- Tab kedua otomatis update tanpa refresh (menggunakan Server-Sent Events)
+
+**Arsitektur integrasi:**
+```
+Browser (HTML/JS) ←→ Gateway (FastAPI) ←→ Server gRPC (server_bioskop.py)
+    localhost:8000      gateway.py         localhost:50051
+```
+
+Gateway bertindak sebagai adapter HTTP ↔ gRPC. Backend gRPC tidak diubah sama sekali.
 
 ### Demo retry + deduplikasi (at-most-once)
 
